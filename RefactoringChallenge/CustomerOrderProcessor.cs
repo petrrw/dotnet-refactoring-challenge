@@ -1,11 +1,18 @@
 namespace RefactoringChallenge;
 
+using MediatR;
+using RefactoringChallenge.Application.Commands;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 
 public class CustomerOrderProcessor
 {
+    private readonly ISender _mediator;
+    public CustomerOrderProcessor(ISender mediator = null)
+    {
+        _mediator = mediator;
+    }
     private readonly string _connectionString = "Server=localhost,1433;Database=refactoringchallenge;User ID=sa;Password=RCPassword1!;";
     
     /// <summary>
@@ -15,6 +22,13 @@ public class CustomerOrderProcessor
     /// <returns>List of processed orders</returns>
     public List<Order> ProcessCustomerOrders(int customerId)
     {
+        if(_mediator is not null)
+        {
+            var command = new ProcessCustomerOrdersCommand(customerId);
+            var res = _mediator.Send(command).GetAwaiter().GetResult();
+            
+        }
+
         if (customerId <= 0)
             throw new ArgumentException("ID zákazníka musí být kladné číslo.", nameof(customerId));
 

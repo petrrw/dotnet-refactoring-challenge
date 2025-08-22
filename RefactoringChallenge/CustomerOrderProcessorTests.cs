@@ -1,14 +1,16 @@
 namespace RefactoringChallenge;
 
 using System.Data.SqlClient;
+using MediatR;
 using NUnit.Framework;
+using RefactoringChallenge.Application.Commands;
+using RefactoringChallenge.Application.Extensions;
+using RefactoringChallenge.Infrastructure.Extensions;
 
 [TestFixture]
 public class CustomerOrderProcessorTests
 {
-    
-    private readonly string _connectionString = "Server=localhost,1433;Database=refactoringchallenge;User ID=sa;Password=RCPassword1!;";
-
+    private readonly string _connectionString = "Server=localhost,1433;Database=refactoringchallenge;User ID=sa;Password=RCPassword1!;TrustServerCertificate=True;";
     
     [SetUp]
     public void SetUp()
@@ -84,7 +86,100 @@ public class CustomerOrderProcessorTests
             }
         }
     }
-    
+
+
+    [Test]
+    public async Task ProcessCustomerOrders_ForVipCustomerWithLargeOrder_AppliesCorrectDiscounts_Refactored()
+    {
+        IServiceCollection services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddApplication();
+        services.AddInfrastructure(_connectionString);
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ISender>();
+
+        int customerId = 1; // VIP customer
+        var cmd = new ProcessCustomerOrdersCommand(customerId);
+        var result = await mediator.Send(cmd);
+
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Count, Is.EqualTo(2));
+
+        var largeOrder = result.Find(o => o.Id == 1);
+        Assert.That(largeOrder, Is.Not.Null);
+        Assert.That(largeOrder.DiscountPercent, Is.EqualTo(25)); // Max. discount 25%
+        Assert.That(largeOrder.Status, Is.EqualTo("Ready"));
+
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            connection.Open();
+            using (var command = new SqlCommand("SELECT StockQuantity FROM Inventory WHERE ProductId = 1", connection))
+            {
+                var newStock = (int)command.ExecuteScalar();
+                Assert.That(newStock, Is.EqualTo(90)); // Origin qty 100, ordered 10
+            }
+        }
+
+    }
+
+    [Test]
+    public async Task ProcessCustomerOrders_ForRegularCustomerWithSmallOrder_AppliesMinimalDiscount_Refactored()
+    {
+        IServiceCollection services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddApplication();
+        services.AddInfrastructure(_connectionString);
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ISender>();
+
+        int customerId = 2; // Regular customer
+        var cmd = new ProcessCustomerOrdersCommand(customerId);
+        var result = await mediator.Send(cmd);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Count, Is.EqualTo(1));
+
+        var smallOrder = result[0];
+        Assert.That(smallOrder.DiscountPercent, Is.EqualTo(2)); // 2% loyalty discount
+        Assert.That(smallOrder.Status, Is.EqualTo("Ready"));
+    }
+
+    [Test]
+    public async Task ProcessCustomerOrders_ForOrderWithUnavailableProducts_SetsOrderOnHold_Refactored()
+    {
+        IServiceCollection services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddApplication();
+        services.AddInfrastructure(_connectionString);
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ISender>();
+
+        int customerId = 3; // Regular customer
+        var cmd = new ProcessCustomerOrdersCommand(customerId);
+        var result = await mediator.Send(cmd);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Count, Is.EqualTo(1));
+
+        var onHoldOrder = result[0];
+        Assert.That(onHoldOrder.Status, Is.EqualTo("OnHold"));
+
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            connection.Open();
+            using (var command = new SqlCommand("SELECT Message FROM OrderLogs WHERE OrderId = @OrderId ORDER BY LogDate DESC", connection))
+            {
+                command.Parameters.AddWithValue("@OrderId", onHoldOrder.Id);
+                var message = (string)command.ExecuteScalar();
+                Assert.That(message, Is.EqualTo("Order on hold. Some items are not on stock."));
+            }
+        }
+    }
+
     private void SetupDatabase()
     {
         using (var connection = new SqlConnection(_connectionString))
