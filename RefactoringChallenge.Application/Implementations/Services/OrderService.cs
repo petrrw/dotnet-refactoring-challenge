@@ -28,6 +28,7 @@ public class OrderService : IOrderService
 
     public async Task<List<Order>> ProcessCustomerOrdersAsync(Customer customer)
     {
+        // TODO: would be nice to use transaction here to ensure all-or-nothing processing of orders
         var processedOrders = new List<Order>();
         var pendingOrders = await GetPendingOrdersByCustomerAsync(customer.Id, true);
 
