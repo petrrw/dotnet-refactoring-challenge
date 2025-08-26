@@ -2,6 +2,7 @@ namespace RefactoringChallenge;
 
 using System.Data.SqlClient;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Moq;
 using NUnit.Framework;
 using RefactoringChallenge.Application.Extensions;
@@ -45,7 +46,7 @@ public class CustomerOrderProcessorTests
 
         var largeOrder = result.Find(o => o.Id == 1);
         Assert.That(largeOrder, Is.Not.Null);
-        Assert.That(largeOrder.DiscountPercent, Is.EqualTo(25)); // Max. discount 25%
+        Assert.That(largeOrder!.DiscountPercent, Is.EqualTo(25)); // Max. discount 25%
         Assert.That(largeOrder.Status, Is.EqualTo("Ready"));
 
         using (var connection = new SqlConnection(_connectionString))
