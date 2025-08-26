@@ -25,10 +25,8 @@ namespace RefactoringChallenge.Infrastructure.Extensions
         {
             services.AddScoped<ICustomerRepository, CustomerRepository>();
             services.AddScoped<IInventoryRepository, InventoryRepository>();
-            services.AddScoped<IOrderItemRepository, OrderItemRepository>();
             services.AddScoped<IOrderLogRepository, OrderLogRepository>();
             services.AddScoped<IOrderRepository, OrderRepository>();
-            services.AddScoped<IProductRepository, ProductRepository>();
 
             return services;
         }
