@@ -6,6 +6,9 @@ using System.Data;
 
 namespace RefactoringChallenge.Infrastructure.Extensions
 {
+    /// <summary>
+    /// Extension methods for registering infrastructure services.
+    /// </summary>
     public static class IServiceCollectionExtensions
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)

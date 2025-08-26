@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using RefactoringChallenge.Application.Interfaces.Data;
 using System.Data;
+using System.Text;
 
 namespace RefactoringChallenge.Infrastructure.Repositories;
 
@@ -13,21 +14,41 @@ public class InventoryRepository : IInventoryRepository
         _connection = connection;
     }
 
-    public async Task<int?> GetStockQuantityAsync(int productId)
-    { // TODO: přejmenovat, zjistuje to jen jestli all products available
-        const string sql = @"SELECT StockQuantity 
-                                 FROM Inventory 
-                                 WHERE ProductId = @ProductId";
+    public async Task<Dictionary<int, int>> GetItemStockQuantitiesByIdsAsync(IEnumerable<int> ids)
+    {
+        const string sql = @"SELECT ProductId, StockQuantity
+                         FROM Inventory
+                         WHERE ProductId IN @ProductIds";
 
-        return await _connection.QueryFirstOrDefaultAsync<int?>(sql, new { ProductId = productId });
+        var quantities = await _connection.QueryAsync<(int ProductId, int StockQuantity)>(
+            sql, new { ProductIds = ids });
+
+        return quantities.ToDictionary(x => x.ProductId, x => x.StockQuantity);
     }
 
-    public async Task DecreaseStockAsync(int productId, int quantity)
+    public async Task DecreaseStockBulkAsync(IEnumerable<(int ProductId, int Quantity)> items)
     {
-        const string sql = @"UPDATE Inventory 
-                                 SET StockQuantity = StockQuantity - @Quantity 
-                                 WHERE ProductId = @ProductId";
+        if (!items.Any()) return;
 
-        await _connection.ExecuteAsync(sql, new { ProductId = productId, Quantity = quantity });
+        var sql = new StringBuilder();
+        sql.Append("UPDATE Inventory SET StockQuantity = CASE ProductId ");
+
+        var parameters = new DynamicParameters();
+        var ids = new List<int>();
+
+        int i = 0;
+        foreach (var item in items)
+        {
+            sql.Append($"WHEN @Id{i} THEN StockQuantity - @Qty{i} ");
+            parameters.Add($"Id{i}", item.ProductId);
+            parameters.Add($"Qty{i}", item.Quantity);
+            ids.Add(item.ProductId);
+            i++;
+        }
+
+        sql.Append("END WHERE ProductId IN @Ids");
+        parameters.Add("Ids", ids);
+
+        await _connection.ExecuteAsync(sql.ToString(), parameters);
     }
 }
