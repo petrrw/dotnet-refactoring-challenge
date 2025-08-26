@@ -1,6 +1,5 @@
 namespace RefactoringChallenge;
 
-using System.Data.SqlClient;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Moq;
