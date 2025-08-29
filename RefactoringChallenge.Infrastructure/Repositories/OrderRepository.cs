@@ -73,59 +73,34 @@ public class OrderRepository : IOrderRepository
     {
         if (!orders.Any()) return;
 
+        var columns = new[] { "TotalAmount", "DiscountPercent", "DiscountAmount", "Status" };
         var sql = new StringBuilder("UPDATE Orders SET ");
         var parameters = new DynamicParameters();
-        var ids = new List<int>();
 
-        // Creates CASE statements for columns
-        sql.Append("TotalAmount = CASE Id ");
-        int i = 0;
-        foreach (var order in orders)
+        // Could be a separate function to make it reusable
+        string BuildCase(string columnName)
         {
-            sql.Append($"WHEN @Id{i} THEN @TotalAmount{i} ");
-            parameters.Add($"Id{i}", order.Id);
-            parameters.Add($"TotalAmount{i}", order.TotalAmount);
-            ids.Add(order.Id);
-            i++;
+            var sb = new StringBuilder($"{columnName} = CASE Id ");
+            int i = 0;
+            foreach (var order in orders)
+            {
+                var value = typeof(Order).GetProperty(columnName)?.GetValue(order);
+                sb.Append($"WHEN @Id{i} THEN @{columnName}{i} ");
+                parameters.Add($"Id{i}", order.Id);
+                parameters.Add($"{columnName}{i}", value);
+                i++;
+            }
+            sb.Append("END");
+            return sb.ToString();
         }
-        sql.Append("END, ");
 
-        // DiscountPercent
-        sql.Append("DiscountPercent = CASE Id ");
-        i = 0;
-        foreach (var order in orders)
-        {
-            sql.Append($"WHEN @Id{i} THEN @DiscountPercent{i} ");
-            parameters.Add($"DiscountPercent{i}", order.DiscountPercent);
-            i++;
-        }
-        sql.Append("END, ");
+        var cases = columns.Select(c => BuildCase(c));
+        sql.Append(string.Join(", ", cases));
 
-        // DiscountAmount
-        sql.Append("DiscountAmount = CASE Id ");
-        i = 0;
-        foreach (var order in orders)
-        {
-            sql.Append($"WHEN @Id{i} THEN @DiscountAmount{i} ");
-            parameters.Add($"DiscountAmount{i}", order.DiscountAmount);
-            i++;
-        }
-        sql.Append("END, ");
-
-        // Status
-        sql.Append("Status = CASE Id ");
-        i = 0;
-        foreach (var order in orders)
-        {
-            sql.Append($"WHEN @Id{i} THEN @Status{i} ");
-            parameters.Add($"Status{i}", order.Status);
-            i++;
-        }
-        sql.Append("END ");
-
-        // WHERE
+        var ids = orders.Select(o => o.Id).ToList();
         parameters.Add("Ids", ids);
-        sql.Append("WHERE Id IN @Ids");
+
+        sql.Append(" WHERE Id IN @Ids");
 
         await _connection.ExecuteAsync(sql.ToString(), parameters);
     }

@@ -15,7 +15,9 @@ using RefactoringChallenge.Infrastructure.Extensions;
 [TestFixture]
 public class CustomerOrderProcessorTests
 {
+    // Would be better to have this in config file
     private readonly string _connectionString = "Server=localhost,1433;Database=refactoringchallenge;User ID=sa;Password=RCPassword1!;TrustServerCertificate=True;";
+   
     private ISender _mediator = null!;
 
     [SetUp]
@@ -171,13 +173,14 @@ public class CustomerOrderProcessorTests
     [TestCase(true, 2, 1001, 17)]    // VIP, 2 years, >1000 -> 10+2+5=17% -> not capped
     [TestCase(true, 2, 1000, 12)]    // VIP, 2 years, > 0 -> 10+2+0=12% -> not capped
     [TestCase(true, 1, 0, 10)]       // VIP, 1 year, 0 = 0 -> 10+0+0=0% -> not capped
-    [TestCase(false, 5, 10001, 20)]   // VIP, >= 5 years, >10000 -> 0+5+15=20% -> not capped
-    [TestCase(false, 4, 10000, 12)]   // VIP, 4 years, >5000 -> 0+2+10=12% -> not capped
-    [TestCase(false, 2, 5001, 12)]    // VIP, 2 years, >5000 -> 0+2+10=12% -> not capped
-    [TestCase(false, 2, 5000, 7)]    // VIP, 2 years, >1000 -> 0+2+5=7% -> not capped
-    [TestCase(false, 2, 1001, 7)]    // VIP, 2 years, >1000 -> 0+2+5=7% -> not capped
-    [TestCase(false, 2, 1000, 2)]    // VIP, 2 years, > 0 -> 0+2+0=2% -> not capped
-    [TestCase(false, 1, 0, 0)]       // VIP, 1 year, 0 = 0 -> 0+0+0=0% -> not capped
+    [TestCase(false, 5, 10001, 20)]   // NON-VIP, >= 5 years, >10000 -> 0+5+15=20% -> not capped
+    [TestCase(false, 4, 10000, 12)]   // NON-VIP, 4 years, >5000 -> 0+2+10=12% -> not capped
+    [TestCase(false, 2, 5001, 12)]    // NON-VIP, 2 years, >5000 -> 0+2+10=12% -> not capped
+    [TestCase(false, 2, 5000, 7)]    // NON-VIP, 2 years, >1000 -> 0+2+5=7% -> not capped
+    [TestCase(false, 2, 1001, 7)]    // NON-VIP, 2 years, >1000 -> 0+2+5=7% -> not capped
+    [TestCase(false, 2, 1000, 2)]    // NON-VIP, 2 years, > 0 -> 0+2+0=2% -> not capped
+    [TestCase(false, 1, 0, 0)]       // NON-VIP, 1 year, 0 = 0 -> 0+0+0=0% -> not capped
+    [TestCase(false, 1, -50, 0)]       // NON-VIP, 1 year, -50 = 0 -> 0+0+0=0% -> negative price case
     public void CalculateDiscount_DefaultStrategy_AllVariants_Test(
         bool isVip, int yearsAsCustomer, decimal itemPrice, decimal expectedDiscountPercent)
     {
